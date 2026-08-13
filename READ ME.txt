@@ -1,0 +1,85 @@
+# Wildfire Game
+
+Jogo multiplayer de 36 perguntas para duas pessoas.
+
+## Arquitetura
+
+- GitHub: repositório
+- Netlify: hospedagem
+- Supabase Realtime: salas, presença e sincronização
+- HTML + CSS + JavaScript puro
+
+## Estrutura
+
+```text
+wildfire-game/
+├── public/
+│   ├── index.html
+│   ├── style.css
+│   ├── script.js
+│   └── config.js
+├── netlify.toml
+└── README.md
+```
+
+## Antes de publicar
+
+Crie um projeto no Supabase.
+
+Depois abra:
+
+`public/config.js`
+
+Preencha:
+
+```js
+export const SUPABASE_URL = "SUA_PROJECT_URL";
+export const SUPABASE_ANON_KEY = "SUA_ANON_KEY";
+```
+
+Esses valores ficam no cliente por design. Para uma versão pública/produção,
+depois devemos revisar políticas e segurança do Supabase.
+
+## Publicação pelo GitHub
+
+1. Crie um novo repositório.
+2. Faça upload de todos os arquivos mantendo a pasta `public`.
+3. Confirme com Commit changes.
+
+## Netlify
+
+1. Add new project.
+2. Import an existing project.
+3. GitHub.
+4. Selecione o repositório.
+5. Branch: `main`.
+6. Build command: vazio.
+7. Publish directory: `public`.
+
+O `netlify.toml` já informa a pasta de publicação.
+
+## Multiplayer
+
+- Pessoa 1 cria uma sala.
+- Recebe código de 6 caracteres.
+- Pessoa 2 entra com o mesmo código.
+- O jogo só inicia com 2 jogadores conectados.
+- Apenas a pessoa da vez pode girar.
+- Roleta e pergunta são sincronizadas.
+- Sem botão para pular pergunta.
+- 3 blocos de 12 perguntas.
+- Perguntas não repetem dentro do bloco.
+- Progresso sincronizado.
+- Presença online via Supabase Realtime Presence.
+- Timer final de 4 minutos.
+
+## Observação técnica
+
+A versão atual usa o anfitrião como autoridade da partida.
+O segundo jogador envia ações ao host, e o host distribui o estado oficial
+para os dois clientes por Supabase Broadcast.
+
+Isso mantém a implementação simples para homologação.
+
+Para uma versão mais robusta depois podemos persistir a sala em banco,
+permitindo recuperação completa mesmo se o anfitrião fechar o navegador.
