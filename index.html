@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0d0b0b" />
+  <title>Wildfire — 36 Perguntas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="ambient ambient-1"></div>
+  <div class="ambient ambient-2"></div>
+
+  <div id="connectionBanner" class="connection-banner hidden">
+    Conexão interrompida. Tentando reconectar…
+  </div>
+
+  <main class="app-shell">
+    <section id="screenHome" class="screen active">
+      <div class="hero">
+        <p class="eyebrow">36 perguntas • 2 pessoas • 1 conexão</p>
+        <h1>Wildfire</h1>
+
+        <p class="subtitle">
+          Crie uma sala, compartilhe o código e espere a outra pessoa entrar.
+          A partida só começa quando os dois estiverem conectados.
+        </p>
+
+        <div class="home-actions">
+          <button id="createRoomBtn" class="primary-btn">Criar sala</button>
+          <button id="showJoinBtn" class="ghost-btn">Entrar em uma sala</button>
+        </div>
+
+        <div id="createBox" class="join-box hidden">
+          <label>
+            <span>Seu nome</span>
+            <input id="hostNameInput" type="text" maxlength="20" placeholder="Digite seu nome" />
+          </label>
+          <button id="confirmCreateBtn" class="primary-btn full-btn">Criar minha sala</button>
+        </div>
+
+        <div id="joinBox" class="join-box hidden">
+          <label>
+            <span>Seu nome</span>
+            <input id="joinNameInput" type="text" maxlength="20" placeholder="Digite seu nome" />
+          </label>
+
+          <label>
+            <span>Código da sala</span>
+            <input id="roomCodeInput" type="text" maxlength="6" placeholder="ABC123" />
+          </label>
+
+          <button id="joinRoomBtn" class="primary-btn full-btn">Entrar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screenLobby" class="screen">
+      <div class="lobby-card glass">
+        <p class="eyebrow">Sala</p>
+        <h2>Esperando vocês dois.</h2>
+
+        <div class="room-code-box">
+          <span>Código da sala</span>
+          <strong id="roomCodeLabel">------</strong>
+          <button id="copyRoomBtn" class="ghost-btn small-btn">Copiar código</button>
+        </div>
+
+        <div class="lobby-players">
+          <div class="lobby-player">
+            <div class="avatar">1</div>
+            <div>
+              <strong id="lobbyPlayer1Name">Pessoa 1</strong>
+              <small id="lobbyPlayer1Status">Aguardando...</small>
+            </div>
+            <span id="lobbyPlayer1Dot" class="status-dot offline"></span>
+          </div>
+
+          <div class="lobby-player">
+            <div class="avatar">2</div>
+            <div>
+              <strong id="lobbyPlayer2Name">Pessoa 2</strong>
+              <small id="lobbyPlayer2Status">Aguardando...</small>
+            </div>
+            <span id="lobbyPlayer2Dot" class="status-dot offline"></span>
+          </div>
+        </div>
+
+        <p id="lobbyMessage" class="lobby-message">
+          A partida só começa quando duas pessoas estiverem conectadas.
+        </p>
+
+        <button id="startGameBtn" class="primary-btn" disabled>Começar</button>
+      </div>
+    </section>
+
+    <section id="screenGame" class="screen">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="blockLabel">Bloco 1</p>
+          <h2 id="blockTitle">Aproximação</h2>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-text">
+            <span id="progressText">0 de 12</span>
+            <span id="totalProgressText">0 de 36</span>
+          </div>
+          <div class="progress-track">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="game-grid">
+        <aside class="players-panel glass">
+          <p class="panel-label">Agora joga</p>
+
+          <div class="turn-badge">
+            <span class="turn-dot"></span>
+            <span id="turnName">Pessoa 1</span>
+          </div>
+
+          <div class="player-list">
+            <div class="player-row" id="player1Row">
+              <div class="avatar">1</div>
+              <div>
+                <strong id="player1Name">Pessoa 1</strong>
+                <small id="player1Status">Aguardando</small>
+              </div>
+            </div>
+
+            <div class="player-row" id="player2Row">
+              <div class="avatar">2</div>
+              <div>
+                <strong id="player2Name">Pessoa 2</strong>
+                <small id="player2Status">Aguardando</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="mini-note">
+            <span>🔥</span>
+            <p>A pergunta sorteada precisa ser respondida. Sem botão de fuga.</p>
+          </div>
+        </aside>
+
+        <section class="question-stage">
+          <div class="wheel-wrap">
+            <div class="pointer"></div>
+            <div id="wheel" class="wheel">
+              <div class="wheel-center">
+                <span id="wheelCount">12</span>
+                <small>restantes</small>
+              </div>
+            </div>
+          </div>
+
+          <button id="spinBtn" class="primary-btn spin-btn">Girar a roleta</button>
+
+          <article id="questionCard" class="question-card hidden">
+            <span id="questionNumber" class="question-number">Pergunta</span>
+            <p id="questionText"></p>
+
+            <div class="question-actions">
+              <button id="answeredBtn" class="primary-btn">Respondemos</button>
+            </div>
+          </article>
+
+          <p id="waitingTurnMessage" class="waiting-message hidden">
+            Aguardando a outra pessoa jogar...
+          </p>
+        </section>
+      </div>
+    </section>
+
+    <section id="screenBlockEnd" class="screen">
+      <div class="ending-card glass">
+        <div class="flame">🔥</div>
+        <p class="eyebrow">Bloco concluído</p>
+        <h2 id="endBlockTitle">Bloco concluído.</h2>
+        <p id="endBlockText"></p>
+        <button id="nextBlockBtn" class="primary-btn">Ir para o próximo bloco</button>
+      </div>
+    </section>
+
+    <section id="screenFinal" class="screen">
+      <div class="ending-card glass">
+        <div class="flame">❤️‍🔥</div>
+        <p class="eyebrow">36 de 36</p>
+        <h2>Vocês chegaram ao fim.</h2>
+
+        <p>
+          Trinta e seis perguntas depois, agora vem o ritual final.
+        </p>
+
+        <div class="final-ritual">
+          <span>Último ritual</span>
+          <strong>4 minutos olhando nos olhos um do outro.</strong>
+          <div id="timer" class="timer">04:00</div>
+          <button id="timerBtn" class="primary-btn">Iniciar 4 minutos</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./script.js"></script>
+</body>
+</html>
