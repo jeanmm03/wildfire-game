@@ -88,7 +88,102 @@ const screens = {
   final: el("screenFinal")
 };
 
+
 const PLAYER_ID = crypto.randomUUID();
+
+const VISIT_ID = crypto.randomUUID();
+const SESSION_ID_KEY = "wildfire_session_id";
+const SESSION_ID =
+  localStorage.getItem(SESSION_ID_KEY) || crypto.randomUUID();
+
+localStorage.setItem(SESSION_ID_KEY, SESSION_ID);
+
+async function logEvent(event, extras = {}, useBeacon = false) {
+  const payload = {
+    event,
+    session_id: SESSION_ID,
+    visit_id: VISIT_ID,
+    player_name: playerName || null,
+    player_slot: playerSlot || null,
+    room_code: roomCode || null,
+
+    block_number:
+      Number.isInteger(state?.game?.block)
+        ? state.game.block + 1
+        : null,
+
+    question_number:
+      Number.isInteger(state?.game?.currentIndex) &&
+      Number.isInteger(state?.game?.block)
+        ? state.game.block * 12 + state.game.currentIndex + 1
+        : null,
+
+    page_url: window.location.href,
+    referrer: document.referrer || null,
+
+    language: navigator.language || null,
+    languages: Array.isArray(navigator.languages)
+      ? navigator.languages
+      : null,
+
+    platform:
+      navigator.userAgentData?.platform ||
+      navigator.platform ||
+      null,
+
+    timezone:
+      Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+
+    screen_width: window.screen?.width || null,
+    screen_height: window.screen?.height || null,
+    viewport_width: window.innerWidth || null,
+    viewport_height: window.innerHeight || null,
+
+    hardware_concurrency:
+      navigator.hardwareConcurrency || null,
+
+    device_memory:
+      navigator.deviceMemory || null,
+
+    connection_type:
+      navigator.connection?.effectiveType || null,
+
+    ...extras
+  };
+
+  try {
+    const url = "/.netlify/functions/log-access";
+
+    if (useBeacon && navigator.sendBeacon) {
+      const blob = new Blob(
+        [JSON.stringify(payload)],
+        { type: "application/json" }
+      );
+      navigator.sendBeacon(url, blob);
+      return;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      keepalive: true
+    });
+
+    if (!response.ok) {
+      console.warn(
+        "Wildfire telemetry:",
+        response.status,
+        await response.text()
+      );
+    }
+  } catch (error) {
+    console.warn("Wildfire telemetry indisponível:", error);
+  }
+}
+
 
 let channel = null;
 let roomCode = null;
@@ -433,6 +528,8 @@ async function createRoom() {
 
     el("roomCodeLabel").textContent = roomCode;
     showScreen("lobby");
+    await logEvent("ROOM_JOINED");
+    await logEvent("ROOM_CREATED");
   } catch (error) {
     console.error(error);
     alert("Não foi possível criar a sala.");
@@ -493,11 +590,14 @@ async function startGame() {
   state.status = "playing";
   state.game = createInitialGame();
 
+  await logEvent("GAME_STARTED");
   await broadcastState();
 }
 
 async function spinWheel() {
   if (!isMyTurn() || !bothConnected()) return;
+
+  await logEvent("WHEEL_SPIN");
 
   await sendBroadcast("action_spin", {
     playerId: PLAYER_ID
@@ -507,6 +607,26 @@ async function spinWheel() {
 async function markAnswered() {
   if (!isMyTurn() || !bothConnected()) return;
 
+  const isLastQuestionInBlock =
+    Array.isArray(state.game.remaining) &&
+    state.game.remaining.length === 1;
+
+  const isFinalQuestion =
+    isLastQuestionInBlock &&
+    state.game.block === 2;
+
+  await logEvent("QUESTION_ANSWERED");
+
+  if (isLastQuestionInBlock) {
+    await logEvent("BLOCK_COMPLETED", {
+      completed_block: state.game.block + 1
+    });
+  }
+
+  if (isFinalQuestion) {
+    await logEvent("GAME_COMPLETED");
+  }
+
   await sendBroadcast("action_answered", {
     playerId: PLAYER_ID
   });
@@ -514,6 +634,10 @@ async function markAnswered() {
 
 async function nextBlock() {
   if (!isMyTurn() || !bothConnected()) return;
+
+  await logEvent("NEXT_BLOCK_REQUESTED", {
+    next_block: state.game.block + 2
+  });
 
   await sendBroadcast("action_next_block", {
     playerId: PLAYER_ID
@@ -730,10 +854,17 @@ function startTimer() {
 
   el("timerBtn").disabled = true;
   el("timerBtn").textContent = "Contando...";
+  logEvent("EYE_CONTACT_TIMER_STARTED");
 
   timerInterval = setInterval(() => {
     secondsLeft -= 1;
-    renderTimer();
+    logEvent("PAGE_VIEW");
+
+window.addEventListener("pagehide", () => {
+  logEvent("PAGE_LEFT", {}, true);
+});
+
+renderTimer();
 
     if (secondsLeft <= 0) {
       clearInterval(timerInterval);
