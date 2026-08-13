@@ -1,5 +1,7 @@
-// PREENCHA APENAS ESTES DOIS CAMPOS.
-// Supabase > Project Settings > API
+// Supabase - configuração pública do Wildfire
 
-export const SUPABASE_URL = "COLE_AQUI_SUA_PROJECT_URL";
-export const SUPABASE_ANON_KEY = "COLE_AQUI_SUA_ANON_KEY";
+export const SUPABASE_URL =
+  "https://kpzlsbfffenwdxkesxym.supabase.co";
+
+export const SUPABASE_ANON_KEY =
+  "sb_publishable_8dnJamrSI-l_wvH_WQ-NiQ_zVXmd1h7";
