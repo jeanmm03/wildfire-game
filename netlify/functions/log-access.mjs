@@ -11,7 +11,9 @@ const ALLOWED_EVENTS = new Set([
   "BLOCK_COMPLETED",
   "GAME_COMPLETED",
   "NEXT_BLOCK_REQUESTED",
-  "EYE_CONTACT_TIMER_STARTED"
+  "EYE_CONTACT_TIMER_STARTED",
+  "MODE_SELECTED",
+  "TOPIC_DEFERRED"
 ]);
 
 function text(value, max = 500) {
@@ -137,7 +139,8 @@ export default async (request, context) => {
 
     event_data: {
       completed_block: body.completed_block ?? null,
-      next_block: body.next_block ?? null
+      next_block: body.next_block ?? null,
+      conversation_mode: body.conversation_mode ?? null
     }
   };
 
