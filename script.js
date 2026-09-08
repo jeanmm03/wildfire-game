@@ -1,9 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { relationshipBlocks } from "./relationship-questions.js";
+import { createRelationshipEngine } from "./relationship-engine.js";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const MODES = {
+  relationship: { id:"relationship", icon:"🔥", name:"Nosso Relacionamento", totalQuestions:72, tip:"Respostas sinceras, limites voluntários e nenhum consenso forçado.", blocks:relationshipBlocks },
   connection: {
     id: "connection",
     icon: "❤️",
@@ -186,6 +189,7 @@ let state = {
   status: "lobby",
   players: {},
   deferredTopics: [],
+  relationship: { round:null, results:[], decisions:{} },
   game: {
     block: 0,
     remaining: [],
@@ -197,6 +201,42 @@ let state = {
     rotation: 0
   }
 };
+
+const relationshipEngine = createRelationshipEngine({
+  el, getState:()=>state, getSlot:()=>playerSlot, getPlayerId:()=>PLAYER_ID,
+  getPlayers:()=>state.players, isHost:amIHost, connected:bothConnected,
+  send:sendBroadcast, sync:broadcastState, complete:completeCurrentQuestion,
+  log:(event)=>logEvent(event,{conversation_mode:"relationship"}),
+  getDefinition:()=>MODES.relationship
+});
+function relationshipQuestion() { return relationshipEngine.current(); }
+function validRelationshipAction(payload) { return relationshipEngine.valid(payload); }
+function renderRelationshipQuestion() { relationshipEngine.render(); }
+function renderRelationshipFinal() {
+  el("finalIcon").textContent="🔥";
+  el("finalEyebrow").textContent="72 conversas depois";
+  el("finalTitle").textContent="O relacionamento que vocês escolhem construir.";
+  el("finalText").textContent="Vocês não precisam concordar com tudo. Nenhum entendimento exige que alguém abandone seus limites.";
+  el("connectionRitual").classList.add("hidden");
+  el("livingSummary").classList.add("hidden");
+  const box=el("relationshipSummary");
+  box.classList.remove("hidden");box.replaceChildren();
+  const results=state.relationship?.results||[];
+  const title=document.createElement("h3");title.textContent="🧭 Mapa das conversas";box.append(title);
+  const summary=document.createElement("p");
+  summary.textContent=`${results.filter(x=>x.aligned).length} entendimentos registrados • ${results.filter(x=>!x.aligned).length} assuntos que merecem mais conversa.`;
+  box.append(summary);
+  const note=document.createElement("p");
+  note.textContent="Este resumo não é uma nota de compatibilidade nem um contrato. As respostas íntimas não são armazenadas no banco. O manifesto e os acordos compartilhados serão implementados na próxima etapa.";
+  box.append(note);
+  const pending=state.deferredTopics||[];
+  if(pending.length) {
+    const h=document.createElement("h3");h.textContent="💭 Para conversar depois";box.append(h);
+    const ul=document.createElement("ul");
+    pending.forEach(item=>{const li=document.createElement("li");li.textContent=item.question;ul.append(li);});
+    box.append(ul);
+  }
+}
 
 function modeDef(mode = state.mode) {
   return MODES[mode] || MODES.connection;
@@ -237,7 +277,8 @@ function publicState() {
     status: state.status,
     hostId,
     game: state.game,
-    deferredTopics: state.deferredTopics
+    deferredTopics: state.deferredTopics,
+    relationship: state.relationship
   };
 }
 
@@ -398,12 +439,16 @@ async function configureChannel(code, name, slot, isHost = false) {
 
     .on("broadcast", { event: "state_sync" }, ({ payload }) => {
       if (!payload) return;
+      if (hostId && payload.hostId !== hostId) return;
+      if (!hostId && payload.hostId !== state.players.p1?.id) return;
 
       if (payload.mode) state.mode = payload.mode;
       if (payload.hostId) hostId = payload.hostId;
       if (payload.status) state.status = payload.status;
       if (payload.game) state.game = payload.game;
       state.deferredTopics = payload.deferredTopics || [];
+      if (payload.relationship) state.relationship = payload.relationship;
+      relationshipEngine.decodeResults();
 
       render();
     })
@@ -413,12 +458,14 @@ async function configureChannel(code, name, slot, isHost = false) {
       if (payload?.playerId !== state.players[currentPlayerSlot()]?.id) return;
       if (!bothConnected()) return;
       if (state.game.questionVisible || state.game.currentIndex !== null) return;
+      if (state.mode === "relationship" && state.relationship?.round) return;
 
       const remaining = state.game.remaining || [];
       if (!remaining.length) return;
 
       const selected = remaining[Math.floor(Math.random() * remaining.length)];
 
+      if (state.mode === "relationship") state.relationship.round = null;
       state.game.currentIndex = selected;
       state.game.questionVisible = false;
       state.game.rotation +=
@@ -440,6 +487,7 @@ async function configureChannel(code, name, slot, isHost = false) {
       if (payload?.playerId !== state.players[currentPlayerSlot()]?.id) return;
       if (!state.game.questionVisible || state.game.currentIndex === null) return;
 
+      if (state.mode === "relationship" && relationshipQuestion()?.type !== "conversation") return;
       await completeCurrentQuestion(false);
     })
 
@@ -447,15 +495,58 @@ async function configureChannel(code, name, slot, isHost = false) {
       if (!amIHost()) return;
       if (payload?.playerId !== state.players[currentPlayerSlot()]?.id) return;
       if (!state.game.questionVisible || state.game.currentIndex === null) return;
-      if (state.mode !== "living") return;
+      if (state.mode === "connection") return;
+      if (state.mode === "relationship" && state.relationship?.round) return;
 
+      if (state.mode === "relationship") state.relationship.round = null;
       await completeCurrentQuestion(true);
     })
 
+    .on("broadcast", { event: "relationship_commit" }, async ({ payload }) => {
+      if (!amIHost() || !bothConnected() || !validRelationshipAction(payload)) return;
+      const round = state.relationship.round;
+      if (!round || round.token !== `${state.game.block}:${state.game.currentIndex}` || round.phase !== "collecting" || round.commits[payload.slot]) return;
+      if (typeof payload.cipher !== "string" || payload.cipher.length > 12000 ||
+          typeof payload.iv !== "string" || payload.iv.length > 100) return;
+      round.commits[payload.slot] = { cipher:payload.cipher, iv:payload.iv };
+      if (round.commits.p1 && round.commits.p2) round.phase = "revealing";
+      await broadcastState();
+    })
+    .on("broadcast", { event: "relationship_reveal" }, async ({ payload }) => {
+      if (!amIHost() || !bothConnected() || !validRelationshipAction(payload)) return;
+      const round = state.relationship.round;
+      if (!round || round.phase !== "revealing" || !round.commits[payload.slot] ||
+          round.keys[payload.slot] || typeof payload.key !== "string" || payload.key.length > 100) return;
+      round.keys[payload.slot] = payload.key;
+      if (round.keys.p1 && round.keys.p2) round.phase = "discussing";
+      await broadcastState();
+    })
+    .on("broadcast", { event: "relationship_decision" }, async ({ payload }) => {
+      if (!amIHost() || !bothConnected() || !validRelationshipAction(payload)) return;
+      const round = state.relationship.round;
+      if (!round || round.phase !== "discussing" ||
+          !["agreed","thinking","different"].includes(payload.decision)) return;
+      if (round.decisions[payload.slot]) return;
+      round.decisions[payload.slot] = payload.decision;
+      if (round.decisions.p1 && round.decisions.p2) {
+        state.relationship.results.push({
+          id:relationshipQuestion().id,
+          decisions:{...round.decisions},
+          aligned:round.decisions.p1 === "agreed" && round.decisions.p2 === "agreed"
+        });
+        const last = state.game.remaining.length === 1;
+        if (last) {
+          await logEvent("BLOCK_COMPLETED",{conversation_mode:"relationship",completed_block:state.game.block+1});
+          if (state.game.block === 5) await logEvent("GAME_COMPLETED",{conversation_mode:"relationship"});
+        }
+        state.relationship.round = null;
+        await completeCurrentQuestion(false);
+      } else await broadcastState();
+    })
     .on("broadcast", { event: "action_next_block" }, async ({ payload }) => {
       if (!amIHost()) return;
       if (payload?.playerId !== state.players[currentPlayerSlot()]?.id) return;
-      if (!bothConnected()) return;
+      if (!bothConnected() || state.status !== "block_end") return;
 
       const definition = modeDef();
       const next = state.game.block + 1;
@@ -468,6 +559,7 @@ async function configureChannel(code, name, slot, isHost = false) {
       state.game.currentIndex = null;
       state.game.questionVisible = false;
       state.game.currentPlayer = state.game.currentPlayer === 0 ? 1 : 0;
+      if (state.mode === "relationship") state.relationship.round = null;
 
       await broadcastState();
     });
@@ -498,7 +590,8 @@ async function configureChannel(code, name, slot, isHost = false) {
 async function completeCurrentQuestion(deferred) {
   const block = currentBlockDef();
   const currentIndex = state.game.currentIndex;
-  const questionText = block.questions[currentIndex];
+  const questionText = typeof block.questions[currentIndex] === "string" ? block.questions[currentIndex] : block.questions[currentIndex].text;
+  if (state.mode === "relationship") { state.relationship.round = null; relationshipEngine.reset(); }
 
   if (deferred) {
     const id = `${state.mode}_${state.game.block}_${currentIndex}`;
@@ -555,6 +648,7 @@ async function createRoom() {
     status: "lobby",
     players: {},
     deferredTopics: [],
+    relationship: { round:null, results:[], decisions:{} },
     game: createInitialGame(selectedMode)
   };
 
@@ -618,6 +712,8 @@ async function startGame() {
   state.status = "playing";
   state.game = createInitialGame(state.mode);
   state.deferredTopics = [];
+  relationshipEngine.reset();
+  state.relationship = { round:null, results:[], decisions:{} };
 
   await logEvent("GAME_STARTED", { conversation_mode: state.mode });
   await broadcastState();
@@ -636,6 +732,7 @@ async function spinWheel() {
 async function markAnswered() {
   if (!isMyTurn() || !bothConnected()) return;
 
+  if (state.mode === "relationship" && relationshipQuestion()?.type !== "conversation") return;
   const isLastInBlock = state.game.remaining?.length === 1;
   const isFinal =
     isLastInBlock &&
@@ -660,7 +757,8 @@ async function markAnswered() {
 }
 
 async function deferQuestion() {
-  if (!isMyTurn() || !bothConnected() || state.mode !== "living") return;
+  if (!isMyTurn() || !bothConnected() || state.mode === "connection") return;
+  if (state.mode === "relationship" && state.relationship?.round) return;
 
   const isLastInBlock = state.game.remaining?.length === 1;
   const isFinal =
@@ -763,7 +861,7 @@ function renderGame() {
   el("spinBtn").disabled =
     !canAct ||
     game.questionVisible ||
-    game.currentIndex !== null;
+    game.currentIndex !== null || (state.mode==="relationship" && !!state.relationship?.round);
 
   el("spinBtn").classList.toggle("hidden", game.questionVisible);
 
@@ -783,16 +881,18 @@ function renderGame() {
     el("questionNumber").textContent =
       `${def.name} • Bloco ${game.block + 1} • pergunta ${globalNumber}`;
 
-    el("questionText").textContent = question;
+    el("questionText").textContent = typeof question === "string" ? question : question.text;
     el("questionCard").classList.remove("hidden");
 
     el("answeredBtn").textContent =
-      state.mode === "living" ? "Conversamos" : "Respondemos";
+      state.mode !== "connection" ? "Conversamos" : "Respondemos";
 
     el("answeredBtn").disabled = !canAct;
+    el("answeredBtn").classList.toggle("hidden",state.mode==="relationship" && question.type!=="conversation");
 
-    el("laterBtn").classList.toggle("hidden", state.mode !== "living");
-    el("laterBtn").disabled = !canAct;
+    el("laterBtn").classList.toggle("hidden", state.mode === "connection");
+    el("laterBtn").disabled = !canAct || (state.mode==="relationship" && !!state.relationship?.round);
+    renderRelationshipQuestion();
   } else {
     el("questionCard").classList.add("hidden");
   }
@@ -810,6 +910,8 @@ function renderBlockEnd() {
 
 function renderFinal() {
   const def = modeDef();
+
+  if (state.mode === "relationship") { renderRelationshipFinal(); return; }
 
   if (state.mode === "connection") {
     el("finalIcon").textContent = "❤️‍🔥";

@@ -48,13 +48,13 @@
             <span class="mode-meta">48 perguntas • 4 blocos</span>
           </button>
 
-          <button class="mode-card disabled" disabled>
+          <button class="mode-card" data-mode="relationship">
             <span class="mode-icon">🔥</span>
             <span class="mode-title">Nosso Relacionamento</span>
             <span class="mode-description">
               Afeto, desejo, fidelidade, limites e acordos.
             </span>
-            <span class="mode-meta">Em breve</span>
+            <span class="mode-meta">72 perguntas • 6 blocos</span>
           </button>
         </div>
 
@@ -212,6 +212,7 @@
             <span id="questionNumber" class="question-number">Pergunta</span>
             <p id="questionText"></p>
 
+            <div id="relationshipInteraction" class="relationship-interaction hidden"></div>
             <div class="question-actions">
               <button id="answeredBtn" class="primary-btn">Conversamos</button>
               <button id="laterBtn" class="soft-btn">Quero conversar sobre isso depois</button>
@@ -251,6 +252,7 @@
           <button id="timerBtn" class="primary-btn">Iniciar 4 minutos</button>
         </div>
 
+        <div id="relationshipSummary" class="living-summary hidden"></div>
         <div id="livingSummary" class="living-summary hidden">
           <div class="summary-stat">
             <strong id="deferredCount">0</strong>

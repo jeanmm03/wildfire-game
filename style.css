@@ -370,3 +370,17 @@ input {
   .ending-card,.lobby-card { padding:28px 18px; }
   .question-actions { flex-direction:column; }
 }
+
+.relationship-interaction { margin:20px 0; text-align:left; }
+.relationship-interaction .private-panel { padding:20px; border:1px solid var(--border); border-radius:20px; background:rgba(255,255,255,.035); }
+.relationship-interaction h3 { margin:0 0 12px; font-family:"Playfair Display",serif; }
+.relationship-interaction p { font-family:"DM Sans",sans-serif; font-size:14px; line-height:1.6; color:var(--muted); margin:8px 0 16px; }
+.relationship-interaction textarea { width:100%; min-height:110px; resize:vertical; padding:14px; border-radius:14px; border:1px solid var(--border); background:#171211; color:var(--text); font:inherit; }
+.relationship-interaction .choice { display:flex; align-items:center; gap:10px; padding:12px; margin:8px 0; border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:14px; }
+.relationship-interaction .choice input { width:auto; }
+.relationship-interaction .private-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+.relationship-interaction .reveal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.relationship-interaction .reveal-item { padding:14px; border:1px solid var(--border); border-radius:14px; overflow-wrap:anywhere; white-space:pre-wrap; }
+.relationship-interaction .reveal-item strong { display:block; color:var(--accent-2); margin-bottom:8px; }
+.relationship-interaction .reveal-item p { white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:520px) { .relationship-interaction .reveal-grid { grid-template-columns:1fr; } }
